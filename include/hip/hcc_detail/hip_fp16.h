@@ -30,7 +30,10 @@ THE SOFTWARE.
 #endif
 
 #if defined(__clang__) && (__clang_major__ > 5)
-    typedef _Float16 _Float16_2 __attribute__((ext_vector_type(2)));
+//---
+#include "hip/hcc_detail/hip_vector_types.h"
+//
+    typedef HIP_vector_type<_Float16, 2> _Float16_2;
 
     struct __half_raw {
         union {
@@ -370,7 +373,7 @@ THE SOFTWARE.
                 data = x.data;
                 return *this;
             }
- 
+
             // MANIPULATORS - DEVICE ONLY
             #if !defined(__HIP_NO_HALF_OPERATORS__)
                 __device__
@@ -471,8 +474,9 @@ THE SOFTWARE.
                 __device__
                 bool operator==(const __half2& x, const __half2& y)
                 {
-                    auto r = x.data == y.data;
-                    return r.x != 0 && r.y != 0;
+                    //auto r = x.data == y.data;
+                    //return r.x != 0 && r.y != 0;
+                    return !(x == y);
                 }
                 friend
                 inline
@@ -486,8 +490,10 @@ THE SOFTWARE.
                 __device__
                 bool operator<(const __half2& x, const __half2& y)
                 {
-                    auto r = x.data < y.data;
-                    return r.x != 0 && r.y != 0;
+                    //auto r = x.data < y.data;
+                    //return r.x != 0 && r.y != 0;
+                    return (x < y);
+
                 }
                 friend
                 inline
@@ -1122,7 +1128,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data ==
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1131,7 +1137,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data !=
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1140,7 +1146,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data <=
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1149,7 +1155,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data >=
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1158,7 +1164,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data <
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1167,7 +1173,7 @@ THE SOFTWARE.
                 auto r = static_cast<__half2_raw>(x).data >
                     static_cast<__half2_raw>(y).data;
                 return __half2_raw{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r), static_cast<_Float16>(r)}};
             }
             inline
             __device__
@@ -1403,15 +1409,6 @@ THE SOFTWARE.
             }
 
             // Math functions
-            #if (__hcc_workweek__ >= 19015) || __HIP_CLANG_ONLY__
-            inline
-            __device__
-            float amd_mixed_dot(__half2 a, __half2 b, float c, bool saturate) {
-                return __ockl_fdot2(static_cast<__half2_raw>(a).data,
-                                    static_cast<__half2_raw>(b).data,
-                                    c, saturate);
-            }
-            #endif
             inline
             __device__
             __half htrunc(__half x)

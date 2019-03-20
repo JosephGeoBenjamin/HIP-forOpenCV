@@ -27,12 +27,20 @@ THE SOFTWARE.
 #include <hip/hcc_detail/hip_texture_types.h>
 
 #pragma push_macro("TYPEDEF_VECTOR_VALUE_TYPE")
+
+// #define TYPEDEF_VECTOR_VALUE_TYPE(SCALAR_TYPE) \
+// typedef SCALAR_TYPE __hip_##SCALAR_TYPE##2_vector_value_type __attribute__((ext_vector_type(2))); \
+// typedef SCALAR_TYPE __hip_##SCALAR_TYPE##3_vector_value_type __attribute__((ext_vector_type(3))); \
+// typedef SCALAR_TYPE __hip_##SCALAR_TYPE##4_vector_value_type __attribute__((ext_vector_type(4))); \
+// typedef SCALAR_TYPE __hip_##SCALAR_TYPE##8_vector_value_type __attribute__((ext_vector_type(8))); \
+// typedef SCALAR_TYPE __hip_##SCALAR_TYPE##16_vector_value_type __attribute__((ext_vector_type(16)));
+
 #define TYPEDEF_VECTOR_VALUE_TYPE(SCALAR_TYPE) \
-typedef SCALAR_TYPE __hip_##SCALAR_TYPE##2_vector_value_type __attribute__((ext_vector_type(2))); \
-typedef SCALAR_TYPE __hip_##SCALAR_TYPE##3_vector_value_type __attribute__((ext_vector_type(3))); \
-typedef SCALAR_TYPE __hip_##SCALAR_TYPE##4_vector_value_type __attribute__((ext_vector_type(4))); \
-typedef SCALAR_TYPE __hip_##SCALAR_TYPE##8_vector_value_type __attribute__((ext_vector_type(8))); \
-typedef SCALAR_TYPE __hip_##SCALAR_TYPE##16_vector_value_type __attribute__((ext_vector_type(16)));
+typedef data_holder<SCALAR_TYPE, 2 > __hip_##SCALAR_TYPE##2_vector_value_type ; \
+typedef data_holder<SCALAR_TYPE, 3 > __hip_##SCALAR_TYPE##3_vector_value_type ; \
+typedef data_holder<SCALAR_TYPE, 4 > __hip_##SCALAR_TYPE##4_vector_value_type ; \
+typedef data_holder<SCALAR_TYPE, 8 > __hip_##SCALAR_TYPE##8_vector_value_type ; \
+typedef data_holder<SCALAR_TYPE, 16> __hip_##SCALAR_TYPE##16_vector_value_type ;
 
 TYPEDEF_VECTOR_VALUE_TYPE(float);
 TYPEDEF_VECTOR_VALUE_TYPE(int);

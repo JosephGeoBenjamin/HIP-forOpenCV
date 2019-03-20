@@ -20,10 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-/**
- *  @file  hcc_detail/hip_vector_types.h
- *  @brief Defines the different newt vector types for HIP runtime.
- */
+/*******************************************************************************
+ * Modified Version - Vectors converted to Array for CV compatabilty
+ *******************************************************************************/
 
 #ifndef HIP_INCLUDE_HIP_HCC_DETAIL_HIP_VECTOR_TYPES_H
 #define HIP_INCLUDE_HIP_HCC_DETAIL_HIP_VECTOR_TYPES_H
@@ -34,7 +33,10 @@ THE SOFTWARE.
 
 #include "hip/hcc_detail/host_defines.h"
 
-#if !defined(_MSC_VER) || __HIP_DEVICE_COMPILE__
+#if !defined(_MSC_VER)
+
+//HIP_TODO:
+//Disabled extended vectors due to OpenCV Issues
 #if defined(__clang__)
     #define __NATIVE_VECTOR__(n, ...) __attribute__((ext_vector_type(n)))
 #elif defined(__GNUC__) // N.B.: GCC does not support .xyzw syntax.
@@ -47,14 +49,129 @@ THE SOFTWARE.
 #if defined(__cplusplus)
     #include <type_traits>
 
-    template<typename T, unsigned int n> struct HIP_vector_base;
+// ====================== Modified
+
+//------ Structure to mimic vector
+
+    template <typename T, unsigned int n>
+    struct data_holder_base{
+        T dValue[n];
+    };
+
+    template <typename T>
+    struct data_holder_base<T, 1>{
+        union{
+            T dValue[1];
+            struct {
+                T x;
+            };
+        };
+    };
+
+    template <typename T>
+    struct data_holder_base<T, 2>{
+        union{
+            T dValue[2];
+            struct {
+                T x;
+                T y;
+            };
+        };
+    };
+
+    template <typename T>
+    struct data_holder_base<T, 3>{
+        union{
+            T dValue[3];
+            struct {
+                T x;
+                T y;
+                T z;
+            };
+        };
+    };
+
+    template <typename T>
+    struct data_holder_base<T, 4>{
+        union{
+            T dValue[4];
+            struct {
+                T x;
+                T y;
+                T z;
+                T w;
+            };
+        };
+    };
+
+    template<typename T, unsigned int rank>
+    struct data_holder : public data_holder_base<T, rank> {
+
+        using data_holder_base<T, rank>::dValue;
+
+        //--- Constructors
+        __host__ __device__
+        data_holder() = default;
+
+        template< typename U >
+        __host__ __device__
+        data_holder(U x) noexcept
+        {
+            for (auto i = 0u; i != rank; ++i) dValue[i] = x;
+        };
+
+        template< typename... Us >
+        __host__ __device__
+        data_holder(Us... xs) noexcept {
+            T data_r[rank] = {static_cast<T>(xs)...};
+            for(unsigned int i=0; i<rank; i++ )
+                dValue[i] = data_r[i];
+        };
+
+        template< typename Ua >
+        __host__ __device__
+        data_holder(Ua* xa) noexcept {
+            for(unsigned int i=0; i<rank; i++ )
+                dValue[i] = xa[i];
+        };
+
+        __host__ __device__
+        data_holder(const data_holder&) = default;
+        __host__ __device__
+        data_holder(data_holder&&) = default;
+
+        __host__ __device__
+        ~data_holder() = default;
+
+        __host__ __device__
+        data_holder& operator=(const data_holder&) = default;
+        __host__ __device__
+        data_holder& operator=(data_holder&&) = default;
+
+        //--- Operator overload
+        __host__ __device__
+        T& operator[](const unsigned int index){
+            return dValue[index];
+        }
+        __host__ __device__
+        T operator[](const unsigned int index) const{
+            return dValue[index];
+        }
+    };
+//--------- Default structures
+
+    template<typename T, unsigned int n>
+    struct HIP_vector_base {
+        typedef struct data_holder<T, n> Native_vec_;
+        Native_vec_ data;
+    };
 
     template<typename T>
     struct HIP_vector_base<T, 1> {
-        typedef T Native_vec_ __NATIVE_VECTOR__(1, T);
+        typedef struct data_holder<T, 1> Native_vec_;
 
         union {
-            Native_vec_ data;
+             Native_vec_ data;
             struct {
                 T x;
             };
@@ -63,7 +180,7 @@ THE SOFTWARE.
 
     template<typename T>
     struct HIP_vector_base<T, 2> {
-        typedef T Native_vec_ __NATIVE_VECTOR__(2, T);
+        typedef struct data_holder<T, 2> Native_vec_ ;
 
         union {
             Native_vec_ data;
@@ -76,10 +193,10 @@ THE SOFTWARE.
 
     template<typename T>
     struct HIP_vector_base<T, 3> {
-        typedef T Native_vec_ __NATIVE_VECTOR__(3, T);
+         typedef struct data_holder<T, 3> Native_vec_;
 
         union {
-            Native_vec_ data;
+         Native_vec_ data;
             struct {
                 T x;
                 T y;
@@ -90,10 +207,10 @@ THE SOFTWARE.
 
     template<typename T>
     struct HIP_vector_base<T, 4> {
-        typedef T Native_vec_ __NATIVE_VECTOR__(4, T);
+         typedef struct data_holder<T, 4> Native_vec_;
 
         union {
-            Native_vec_ data;
+             Native_vec_ data;
             struct {
                 T x;
                 T y;
@@ -124,7 +241,19 @@ THE SOFTWARE.
             typename std::enable_if<
                 (rank > 1) && sizeof...(Us) == rank>::type* = nullptr>
         __host__ __device__
-        HIP_vector_type(Us... xs) noexcept { data = Native_vec_{static_cast<T>(xs)...}; }
+        HIP_vector_type(Us... xs) noexcept {
+            T data_r[rank] = {static_cast<T>(xs)...};
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] = data_r[i];
+            }
+
+        template< typename Ua >
+        __host__ __device__
+        HIP_vector_type(Ua* xa) noexcept {
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] = xa[i];
+        };
+
         __host__ __device__
         HIP_vector_type(const HIP_vector_type&) = default;
         __host__ __device__
@@ -137,41 +266,62 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator=(HIP_vector_type&&) = default;
 
-        // Operators
+        // Arithmetic Operators
+
         __host__ __device__
         HIP_vector_type& operator++() noexcept
         {
-            return *this += HIP_vector_type{1};
+            for(unsigned int i=0; i<rank; i++ )
+                this->data[i] += 1;
+            return *this;
         }
         __host__ __device__
         HIP_vector_type operator++(int) noexcept
         {
             auto tmp(*this);
-            ++*this;
+            for(unsigned int i=0; i<rank; i++ )
+                this->data[i] += 1;
             return tmp;
         }
         __host__ __device__
         HIP_vector_type& operator--() noexcept
         {
-            return *this -= HIP_vector_type{1};
+            for(unsigned int i=0; i<rank; i++ )
+                this->data[i] -= 1;
+            return *this;
         }
         __host__ __device__
         HIP_vector_type operator--(int) noexcept
         {
             auto tmp(*this);
-            --*this;
+            for(unsigned int i=0; i<rank; i++ )
+                this->data[i] -= 1;
             return tmp;
         }
         __host__ __device__
         HIP_vector_type& operator+=(const HIP_vector_type& x) noexcept
         {
-            data += x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] += x.data[i];
             return *this;
         }
+        template<
+            typename U,
+            typename std::enable_if<
+                std::is_convertible<U, T>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator+=(U x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] += x;
+            return *this;
+        }
+
         __host__ __device__
         HIP_vector_type& operator-=(const HIP_vector_type& x) noexcept
         {
-            data -= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] -= x.data[i];
             return *this;
         }
         template<
@@ -181,18 +331,44 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator-=(U x) noexcept
         {
-            return *this -= HIP_vector_type{x};
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] -= x;
+            return *this;
         }
         __host__ __device__
         HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
         {
-            data *= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] *= x.data[i];
+            return *this;
+        }
+        template<
+            typename U,
+            typename std::enable_if<
+                std::is_convertible<U, T>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator*=(U x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] *= x;
             return *this;
         }
         __host__ __device__
         HIP_vector_type& operator/=(const HIP_vector_type& x) noexcept
         {
-            data /= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] /= x.data[i];
+            return *this;
+        }
+        template<
+            typename U,
+            typename std::enable_if<
+                std::is_convertible<U, T>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator/=(U x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] /= x;
             return *this;
         }
 
@@ -203,7 +379,8 @@ THE SOFTWARE.
         HIP_vector_type operator-() noexcept
         {
             auto tmp(*this);
-            tmp.data = -tmp.data;
+            for(unsigned int i=0; i<rank; i++ )
+                tmp.data[i] = -tmp.data[i];
             return tmp;
         }
 
@@ -213,9 +390,10 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type operator~() noexcept
         {
-            HIP_vector_type r{*this};
-            r.data = ~r.data;
-            return r;
+            T data_not[rank];
+            for(unsigned int i=0; i<rank; i++ )
+                data_not[i] = ~this->data[i];
+            return data_not;
         }
         template<
             typename U = T,
@@ -223,16 +401,21 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator%=(const HIP_vector_type& x) noexcept
         {
-            data %= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] %= x.data[i];
             return *this;
         }
+
+        // Bitwise Operators
+
         template<
             typename U = T,
             typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
         __host__ __device__
         HIP_vector_type& operator^=(const HIP_vector_type& x) noexcept
         {
-            data ^= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] ^= x.data[i];
             return *this;
         }
         template<
@@ -241,7 +424,8 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator|=(const HIP_vector_type& x) noexcept
         {
-            data |= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] |= x.data[i];
             return *this;
         }
         template<
@@ -250,7 +434,8 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator&=(const HIP_vector_type& x) noexcept
         {
-            data &= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] &= x.data[i];
             return *this;
         }
         template<
@@ -259,7 +444,8 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator>>=(const HIP_vector_type& x) noexcept
         {
-            data >>= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] >>= x.data[i];
             return *this;
         }
         template<
@@ -268,11 +454,68 @@ THE SOFTWARE.
         __host__ __device__
         HIP_vector_type& operator<<=(const HIP_vector_type& x) noexcept
         {
-            data <<= x.data;
+            for(unsigned int i=0; i<rank; i++ )
+                data[i] <<= x.data[i];
             return *this;
         }
-    };
 
+        __host__ __device__
+        bool operator==(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] == x.data[i]))
+                    return false;
+            return true;
+        }
+
+        __host__ __device__
+        bool operator!=(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] != x.data[i]))
+                    return false;
+            return true;
+        }
+
+        __host__ __device__
+        bool operator<=(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] <= x.data[i]))
+                    return false;
+            return true;
+        }
+
+        __host__ __device__
+        bool operator>=(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] >= x.data[i]))
+                    return false;
+            return true;
+        }
+
+        __host__ __device__
+        bool operator<(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] < x.data[i]))
+                    return false;
+            return true;
+        }
+
+        __host__ __device__
+        bool operator>(const HIP_vector_type& x) noexcept
+        {
+            for(unsigned int i=0; i<rank; i++ )
+                if (!(data[i] > x.data[i]))
+                    return false;
+            return true;
+        }
+
+    }; //Actual Class end
+
+//==============================================================================
 
     template<typename T, unsigned int n>
     __host__ __device__

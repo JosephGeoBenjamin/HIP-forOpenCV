@@ -28,8 +28,8 @@ THE SOFTWARE.
 
 #include "host_defines.h"
 
-extern "C"
-{
+//extern "C"
+//{
     __device__ __attribute__((const)) _Float16 __ocml_ceil_f16(_Float16);
     __device__ _Float16 __ocml_cos_f16(_Float16);
     __device__ __attribute__((pure)) _Float16 __ocml_exp_f16(_Float16);
@@ -50,12 +50,8 @@ extern "C"
     __device__ __attribute__((const)) _Float16 __ocml_sqrt_f16(_Float16);
     __device__ __attribute__((const)) _Float16 __ocml_trunc_f16(_Float16);
 
-    typedef _Float16 __2f16 __attribute__((ext_vector_type(2)));
-    typedef short __2i16 __attribute__((ext_vector_type(2)));
-
-    #if (__hcc_workweek__ >= 19015) || __HIP_CLANG_ONLY__
-    __device__ __attribute__((const)) float __ockl_fdot2(__2f16 a, __2f16 b, float c, bool s);
-    #endif
+    typedef HIP_vector_type<_Float16, 2> __2f16;
+    typedef  HIP_vector_type<short, 2> __2i16 ;
 
     __device__ __attribute__((const)) __2f16 __ocml_ceil_2f16(__2f16);
     __device__ __2f16 __ocml_cos_2f16(__2f16);
@@ -79,4 +75,4 @@ extern "C"
     __device__ __2f16 __ocml_sin_2f16(__2f16);
     __device__ __attribute__((const)) __2f16 __ocml_sqrt_2f16(__2f16);
     __device__ __attribute__((const)) __2f16 __ocml_trunc_2f16(__2f16);
-}
+//}
