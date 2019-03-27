@@ -34,7 +34,7 @@ THE SOFTWARE.
 
 #include "hip/hcc_detail/host_defines.h"
 
-#if !defined(_MSC_VER) || __HIP_DEVICE_COMPILE__
+#if !defined(_MSC_VER)
 #if defined(__clang__)
     #define __NATIVE_VECTOR__(n, ...) __attribute__((ext_vector_type(n)))
 #elif defined(__GNUC__) // N.B.: GCC does not support .xyzw syntax.
@@ -74,12 +74,13 @@ THE SOFTWARE.
         };
     };
 
+// ====================== Modified
     template<typename T>
     struct HIP_vector_base<T, 3> {
-        typedef T Native_vec_ __NATIVE_VECTOR__(3, T);
+        typedef T* Native_vec_ ;
 
         union {
-            Native_vec_ data;
+            T data[3];
             struct {
                 T x;
                 T y;
@@ -87,7 +88,7 @@ THE SOFTWARE.
             };
         };
     };
-
+//===========================
     template<typename T>
     struct HIP_vector_base<T, 4> {
         typedef T Native_vec_ __NATIVE_VECTOR__(4, T);
@@ -273,6 +274,222 @@ THE SOFTWARE.
         }
     };
 
+//========================= Size 3 arrays ======================================
+
+
+    template<typename T >
+    struct HIP_vector_type <T , 3>: public HIP_vector_base<T, 3> {
+        using HIP_vector_base<T, 3>::data;
+        using typename HIP_vector_base<T, 3>::Native_vec_;
+
+        __host__ __device__
+        HIP_vector_type() = default;
+        template<
+            typename U,
+            typename std::enable_if<
+                std::is_convertible<U, T>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type(U x) noexcept
+        {
+            for (auto i = 0u; i != 3; ++i) data[i] = x;
+        }
+        template< // TODO: constrain based on type as well.
+            typename... Us,
+            typename std::enable_if<
+                (3 > 1) && sizeof...(Us) == 3>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type(Us... xs) noexcept {
+            T data3[3] = {static_cast<T>(xs)...};
+            data[0] = data3[0];
+            data[1] = data3[1];
+            data[2] = data3[2];
+            }
+        __host__ __device__
+        HIP_vector_type(const HIP_vector_type&) = default;
+        __host__ __device__
+        HIP_vector_type(HIP_vector_type&&) = default;
+        __host__ __device__
+        ~HIP_vector_type() = default;
+
+        __host__ __device__
+        HIP_vector_type& operator=(const HIP_vector_type&) = default;
+        __host__ __device__
+        HIP_vector_type& operator=(HIP_vector_type&&) = default;
+
+        // Operators
+        __host__ __device__
+        HIP_vector_type& operator++() noexcept
+        {
+            this->data[0] += 1;
+            this->data[1] += 1;
+            this->data[2] += 1;
+            return *this;
+        }
+        __host__ __device__
+        HIP_vector_type operator++(int) noexcept
+        {
+            auto tmp(*this);
+            this->data[0] += 1;
+            this->data[1] += 1;
+            this->data[2] += 1;
+            return tmp;
+        }
+        __host__ __device__
+        HIP_vector_type& operator--() noexcept
+        {
+            this->data[0] -= 1;
+            this->data[1] -= 1;
+            this->data[2] -= 1;
+            return *this;
+        }
+        __host__ __device__
+        HIP_vector_type operator--(int) noexcept
+        {
+            auto tmp(*this);
+            this->data[0] -= 1;
+            this->data[1] -= 1;
+            this->data[2] -= 1;
+            return tmp;
+        }
+        __host__ __device__
+        HIP_vector_type& operator+=(const HIP_vector_type& x) noexcept
+        {
+            data[0] += x.data[0];
+            data[1] += x.data[1];
+            data[2] += x.data[2];
+            return *this;
+        }
+        __host__ __device__
+        HIP_vector_type& operator-=(const HIP_vector_type& x) noexcept
+        {
+            data[0] -= x.data[0];
+            data[1] -= x.data[1];
+            data[2] -= x.data[2];
+            return *this;
+        }
+        template<
+            typename U,
+            typename std::enable_if<
+                std::is_convertible<U, T>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator-=(U x) noexcept
+        {
+            data[0] -= x;
+            data[1] -= x;
+            data[2] -= x;
+            return *this;
+        }
+        __host__ __device__
+        HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
+        {
+            data[0] *= x.data[0];
+            data[1] *= x.data[1];
+            data[2] *= x.data[2];
+            return *this;
+        }
+        __host__ __device__
+        HIP_vector_type& operator/=(const HIP_vector_type& x) noexcept
+        {
+            data[0] /= x.data[0];
+            data[1] /= x.data[1];
+            data[2] /= x.data[2];
+            return *this;
+        }
+
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_signed<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type operator-() noexcept
+        {
+            auto tmp(*this);
+            tmp.data[0] = -tmp.data[0];
+            tmp.data[1] = -tmp.data[1];
+            tmp.data[2] = -tmp.data[2];
+            return tmp;
+        }
+
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type operator~() noexcept
+        {
+            T data_not[3];
+            data_not[0] = ~this->data[0];
+            data_not[1] = ~this->data[1];
+            data_not[2] = ~this->data[2];
+            return data_not;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator%=(const HIP_vector_type& x) noexcept
+        {
+            data[0] %= x.data[0];
+            data[1] %= x.data[1];
+            data[2] %= x.data[2];
+            return *this;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator^=(const HIP_vector_type& x) noexcept
+        {
+            data[0] ^= x.data[0];
+            data[1] ^= x.data[1];
+            data[2] ^= x.data[2];
+            return *this;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator|=(const HIP_vector_type& x) noexcept
+        {
+            data[0] |= x.data[0];
+            data[1] |= x.data[1];
+            data[2] |= x.data[2];
+            return *this;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator&=(const HIP_vector_type& x) noexcept
+        {
+            data[0] &= x.data[0];
+            data[1] &= x.data[1];
+            data[2] &= x.data[2];
+            return *this;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator>>=(const HIP_vector_type& x) noexcept
+        {
+            data[0] >>= x.data[0];
+            data[1] >>= x.data[1];
+            data[2] >>= x.data[2];
+            return *this;
+        }
+        template<
+            typename U = T,
+            typename std::enable_if<std::is_integral<U>{}>::type* = nullptr>
+        __host__ __device__
+        HIP_vector_type& operator<<=(const HIP_vector_type& x) noexcept
+        {
+            data[0] <<= x.data[0];
+            data[1] <<= x.data[1];
+            data[2] <<= x.data[2];
+            return *this;
+        }
+    };
+
+//==============================================================================
 
     template<typename T, unsigned int n>
     __host__ __device__
